@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "api/leaves.js": {
+      "runtime": "edge"
+    }
+  }
+}

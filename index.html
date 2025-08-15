@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام إدارة الإجازات - متصل بـ Vercel KV</title>
+    <style>
+        /* CSS code remains exactly the same, no changes needed here */
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+        :root {
+            --primary-color: #3498db; --secondary-color: #2c3e50; --background-color: #f4f6f9;
+            --surface-color: #ffffff; --text-color: #34495e; --light-gray: #bdc3c7;
+            --success-color: #2ecc71; --error-color: #e74c3c; --warning-color: #f39c12;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Cairo', sans-serif;
+            background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+            background-size: 400% 400%; animation: gradientBG 15s ease infinite;
+            color: var(--text-color); display: flex; justify-content: center; align-items: center;
+            min-height: 100vh; overflow: hidden;
+        }
+        @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+        .hidden { display: none !important; }
+
+        .loading-indicator {
+            text-align: center;
+            padding: 50px;
+            font-size: 20px;
+            color: var(--secondary-color);
+        }
+
+        #login-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(8px); display: flex; justify-content: center; align-items: center; z-index: 1000;
+        }
+        #login-box {
+            background: var(--surface-color); padding: 40px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            text-align: center; width: 90%; max-width: 400px; animation: popIn 0.3s ease-out forwards;
+        }
+        @keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        #login-box h2 { margin-bottom: 25px; color: var(--secondary-color); }
+        .input-group { margin-bottom: 20px; text-align: right; }
+        .input-group label { display: block; margin-bottom: 8px; font-weight: 600; }
+        .input-group input { width: 100%; padding: 12px; border: 1px solid var(--light-gray); border-radius: 8px; font-family: 'Cairo', sans-serif; font-size: 16px; transition: border-color 0.3s, box-shadow 0.3s; }
+        .input-group input:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2); }
+        #login-button { width: 100%; padding: 15px; border: none; border-radius: 8px; background-color: var(--primary-color); color: white; font-size: 18px; font-weight: 700; cursor: pointer; transition: background-color 0.3s, transform 0.2s; }
+        #login-button:hover { background-color: #2980b9; transform: translateY(-2px); }
+        #login-error { color: var(--error-color); margin-top: 15px; height: 20px; }
+
+        #app-container { width: 95%; max-width: 1200px; height: 90vh; background: var(--surface-color); border-radius: 20px; box-shadow: 0 15px 40px rgba(0, 0, 0, 0.25); display: flex; flex-direction: column; overflow: hidden; }
+        header { display: flex; justify-content: space-between; align-items: center; padding: 20px 30px; background-color: var(--secondary-color); color: white; border-bottom: 4px solid var(--primary-color); }
+        header h1 { font-size: 24px; }
+        .header-buttons { display: flex; gap: 10px; }
+        .header-buttons button { padding: 10px 20px; border: none; border-radius: 8px; color: white; font-size: 16px; font-family: 'Cairo', sans-serif; cursor: pointer; transition: all 0.3s; display: flex; align-items: center; gap: 8px; }
+        #add-leave-btn { background-color: var(--primary-color); } #add-leave-btn:hover { background-color: #2980b9; transform: translateY(-2px); }
+        #manage-leaves-btn { background-color: var(--warning-color); } #manage-leaves-btn:hover { background-color: #d35400; transform: translateY(-2px); }
+
+        #calendar-wrapper { padding: 20px; flex-grow: 1; display: flex; flex-direction: column; background-color: var(--background-color); }
+        #calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        #month-display { font-size: 28px; font-weight: 700; color: var(--secondary-color); }
+        .nav-btn { border: none; background-color: var(--surface-color); border-radius: 50%; cursor: pointer; font-size: 20px; width: 45px; height: 45px; display: flex; justify-content: center; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); transition: background-color 0.3s, transform 0.2s; }
+        .nav-btn:hover { background-color: #e0e0e0; transform: scale(1.1); }
+        #weekdays { display: grid; grid-template-columns: repeat(7, 1fr); margin-bottom: 10px; }
+        #weekdays div { text-align: center; font-weight: 600; color: var(--primary-color); padding: 10px; }
+        #calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; flex-grow: 1; }
+        .day { background-color: var(--surface-color); border-radius: 8px; padding: 8px; display: flex; flex-direction: column; min-height: 100px; }
+        .day.padding { background-color: transparent; }
+        .day-number { font-weight: 600; margin-bottom: 5px; }
+        .day.today .day-number { background-color: var(--primary-color); color: white; border-radius: 50%; width: 28px; height: 28px; display: flex; justify-content: center; align-items: center; }
+        .leaves-container { display: flex; flex-direction: column; gap: 3px; overflow-y: auto; max-height: 70px; }
+        .leave-bar { padding: 3px 6px; border-radius: 4px; font-size: 12px; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; transition: filter 0.2s; }
+        .leave-bar:hover { filter: brightness(1.15); }
+
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); backdrop-filter: blur(5px); display: flex; justify-content: center; align-items: center; z-index: 100; }
+        .modal-content { background-color: var(--surface-color); padding: 30px; border-radius: 15px; width: 90%; max-width: 600px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); animation: popIn 0.3s ease-out forwards; max-height: 80vh; display: flex; flex-direction: column; }
+        .modal-content h2 { margin-bottom: 20px; color: var(--secondary-color); }
+        .modal-form { display: flex; flex-direction: column; gap: 15px; }
+        .modal-form label { font-weight: 600; }
+        .modal-form input { width: 100%; padding: 12px; border: 1px solid var(--light-gray); border-radius: 8px; font-family: 'Cairo', sans-serif; font-size: 16px; }
+        .modal-buttons { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 25px; }
+        .modal-buttons button, .btn { padding: 10px 20px; border-radius: 8px; border: none; font-family: 'Cairo', sans-serif; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s; }
+        .btn-save { background-color: var(--success-color); color: white; } .btn-save:hover { background-color: #27ae60; }
+        .btn-cancel { background-color: var(--light-gray); color: var(--secondary-color); } .btn-cancel:hover { background-color: #95a5a6; }
+        .btn-delete { background-color: var(--error-color); color: white; } .btn-delete:hover { background-color: #c0392b; }
+
+        #leaves-list-container { flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 10px; margin-top: 10px; }
+        .leave-list-item { display: flex; align-items: center; padding: 15px; background-color: var(--background-color); border-radius: 8px; cursor: pointer; transition: background-color 0.3s, box-shadow 0.3s; border-right: 5px solid; }
+        .leave-list-item:hover { background-color: #dfe6e9; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .leave-list-item-info strong { font-size: 18px; color: var(--secondary-color); }
+        .leave-list-item-info p { font-size: 14px; color: #636e72; }
+        .no-leaves-message { text-align: center; padding: 40px; color: var(--light-gray); font-size: 18px; }
+        
+        #view-leave-details p { font-size: 18px; line-height: 1.8; color: var(--text-color); }
+        #view-leave-details p strong { color: var(--secondary-color); margin-left: 8px; }
+    </style>
+</head>
+<body>
+    <!-- HTML structure remains the same, no changes needed here -->
+    <div id="login-overlay">
+        <div id="login-box">
+            <h2>نظام إدارة الإجازات</h2>
+            <form id="login-form">
+                <div class="input-group"><label for="username">اسم المستخدم</label><input type="text" id="username" required value="admin"></div>
+                <div class="input-group"><label for="password">كلمة المرور</label><input type="password" id="password" required value="admin"></div>
+                <button type="submit" id="login-button">دخول</button>
+                <p id="login-error"></p>
+            </form>
+        </div>
+    </div>
+    
+    <div id="app-container" class="hidden">
+        <header>
+            <h1>تقويم الإجازات</h1>
+            <div class="header-buttons">
+                <button id="manage-leaves-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                    إدارة الإجازات
+                </button>
+                <button id="add-leave-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    إضافة إجازة
+                </button>
+            </div>
+        </header>
+        <main id="calendar-wrapper">
+             <div id="calendar-header">
+                <button class="nav-btn" id="prev-month-btn">❯</button>
+                <h2 id="month-display"></h2>
+                <button class="nav-btn" id="next-month-btn">❮</button>
+            </div>
+            <div id="weekdays"></div>
+            <div id="calendar-grid">
+                 <div class="loading-indicator">جاري تحميل البيانات...</div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <div id="add-leave-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2>إضافة إجازة جديدة</h2>
+            <form id="add-leave-form" class="modal-form">
+                <div><label for="add-employee-name">اسم الموظف</label><input type="text" id="add-employee-name" required></div>
+                <div><label for="add-start-date">تاريخ البدء</label><input type="date" id="add-start-date" required></div>
+                <div><label for="add-end-date">تاريخ الانتهاء</label><input type="date" id="add-end-date" required></div>
+                <div class="modal-buttons">
+                    <button type="button" class="btn btn-cancel">إلغاء</button>
+                    <button type="submit" class="btn btn-save">حفظ</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div id="view-leave-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2>تفاصيل الإجازة</h2>
+            <div id="view-leave-details">
+                <p><strong>الموظف:</strong> <span id="view-employee-name"></span></p>
+                <p><strong>من تاريخ:</strong> <span id="view-start-date"></span></p>
+                <p><strong>إلى تاريخ:</strong> <span id="view-end-date"></span></p>
+            </div>
+            <div class="modal-buttons">
+                 <button type="button" class="btn btn-cancel">إغلاق</button>
+                 <button type="button" id="delete-leave-btn" class="btn btn-delete">حذف الإجازة</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="manage-leaves-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2>إدارة الإجازات المسجلة</h2>
+            <div id="leaves-list-container"></div>
+            <div class="modal-buttons" style="justify-content: flex-end;">
+                <button type="button" class="btn btn-cancel">إغلاق</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const elements = {
+                // ... same elements as before
+                loginOverlay: document.getElementById('login-overlay'),
+                appContainer: document.getElementById('app-container'),
+                calendarGrid: document.getElementById('calendar-grid'),
+                monthDisplay: document.getElementById('month-display'),
+                weekdaysContainer: document.getElementById('weekdays'),
+                addLeaveModal: document.getElementById('add-leave-modal'),
+                viewLeaveModal: document.getElementById('view-leave-modal'),
+                manageLeavesModal: document.getElementById('manage-leaves-modal'),
+                loginForm: document.getElementById('login-form'),
+                addLeaveForm: document.getElementById('add-leave-form'),
+                deleteLeaveBtn: document.getElementById('delete-leave-btn'),
+                addLeaveBtn: document.getElementById('add-leave-btn'),
+                manageLeavesBtn: document.getElementById('manage-leaves-btn'),
+                nextMonthBtn: document.getElementById('next-month-btn'),
+                prevMonthBtn: document.getElementById('prev-month-btn'),
+                leavesListContainer: document.getElementById('leaves-list-container'),
+                viewEmployeeName: document.getElementById('view-employee-name'),
+                viewStartDate: document.getElementById('view-start-date'),
+                viewEndDate: document.getElementById('view-end-date'),
+            };
+
+            let nav = 0;
+            let leaves = []; // ستبدأ فارغة ويتم جلبها من الـ API
+            let currentlySelectedLeaveId = null;
+            const weekdays = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+            const employeeColors = {};
+
+            // --- دوال الاتصال بقاعدة البيانات (API) ---
+            async function fetchLeaves() {
+                try {
+                    const response = await fetch('/api/leaves');
+                    if (!response.ok) throw new Error('Network response was not ok');
+                    return await response.json();
+                } catch (error) {
+                    console.error('Failed to fetch leaves:', error);
+                    alert('خطأ في جلب البيانات من قاعدة البيانات.');
+                    return []; // ارجع مصفوفة فارغة في حالة الفشل
+                }
+            }
+            
+            async function saveLeaves(updatedLeaves) {
+                try {
+                    await fetch('/api/leaves', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(updatedLeaves),
+                    });
+                } catch (error) {
+                    console.error('Failed to save leaves:', error);
+                    alert('خطأ في حفظ البيانات في قاعدة البيانات.');
+                }
+            }
+            
+            // --- دوال الأدوات ---
+            const getColorForEmployee = (employeeName) => {
+                if (!employeeColors[employeeName]) {
+                    let hash = 0;
+                    for (let i = 0; i < employeeName.length; i++) { hash = employeeName.charCodeAt(i) + ((hash << 5) - hash); }
+                    employeeColors[employeeName] = `hsl(${hash % 360}, 70%, 50%)`;
+                }
+                return employeeColors[employeeName];
+            };
+            const formatDate = (dateString) => new Date(dateString).toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' });
+            
+            // --- منطق التقويم (لا تغييرات هنا) ---
+            function loadCalendar() {
+                const dt = new Date();
+                if (nav !== 0) dt.setMonth(new Date().getMonth() + nav);
+                const month = dt.getMonth();
+                const year = dt.getFullYear();
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+                const firstDayOfMonth = new Date(year, month, 1);
+                const paddingDays = firstDayOfMonth.getDay();
+
+                elements.monthDisplay.innerText = `${dt.toLocaleDateString('ar-EG', { month: 'long' })} ${year}`;
+                elements.calendarGrid.innerHTML = '';
+
+                if (elements.weekdaysContainer.children.length === 0) {
+                    weekdays.forEach(day => elements.weekdaysContainer.insertAdjacentHTML('beforeend', `<div>${day}</div>`));
+                }
+
+                for (let i = 1; i <= paddingDays + daysInMonth; i++) {
+                    const daySquare = document.createElement('div');
+                    daySquare.classList.add('day');
+
+                    if (i > paddingDays) {
+                        const dayNumber = i - paddingDays;
+                        daySquare.innerHTML = `<div class="day-number">${dayNumber}</div><div class="leaves-container"></div>`;
+
+                        const currentDate = new Date();
+                        if (dayNumber === currentDate.getDate() && nav === 0 && year === currentDate.getFullYear() && month === currentDate.getMonth()) {
+                            daySquare.classList.add('today');
+                        }
+
+                        const dayDate = new Date(year, month, dayNumber); dayDate.setHours(0,0,0,0);
+                        const leavesForDay = leaves.filter(l => {
+                            const startDate = new Date(l.startDate); startDate.setHours(0,0,0,0);
+                            const endDate = new Date(l.endDate); endDate.setHours(0,0,0,0);
+                            return dayDate >= startDate && dayDate <= endDate;
+                        });
+
+                        leavesForDay.forEach(leave => {
+                            const leaveBar = document.createElement('div');
+                            leaveBar.className = 'leave-bar';
+                            leaveBar.style.backgroundColor = getColorForEmployee(leave.employeeName);
+                            leaveBar.innerText = leave.employeeName;
+                            leaveBar.dataset.leaveId = leave.id;
+                            daySquare.querySelector('.leaves-container').appendChild(leaveBar);
+                        });
+                    } else { daySquare.classList.add('padding'); }
+                    elements.calendarGrid.appendChild(daySquare);
+                }
+            }
+
+            // --- منطق النوافذ (لا تغييرات هنا) ---
+            const openModal = (modal) => modal.classList.remove('hidden');
+            const closeAllModals = () => [elements.addLeaveModal, elements.viewLeaveModal, elements.manageLeavesModal].forEach(modal => modal.classList.add('hidden'));
+
+            function openViewModal(leaveId) {
+                const leave = leaves.find(l => l.id === leaveId);
+                if (!leave) return;
+                currentlySelectedLeaveId = leave.id;
+                elements.viewEmployeeName.textContent = leave.employeeName;
+                elements.viewStartDate.textContent = formatDate(leave.startDate);
+                elements.viewEndDate.textContent = formatDate(leave.endDate);
+                closeAllModals();
+                openModal(elements.viewLeaveModal);
+            }
+
+            function populateLeavesList() {
+                elements.leavesListContainer.innerHTML = '';
+                if (leaves.length === 0) {
+                    elements.leavesListContainer.innerHTML = `<p class="no-leaves-message">لا توجد إجازات مسجلة حاليًا.</p>`;
+                    return;
+                }
+                const sortedLeaves = [...leaves].sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+                sortedLeaves.forEach(leave => {
+                    const item = document.createElement('div');
+                    item.className = 'leave-list-item';
+                    item.dataset.leaveId = leave.id;
+                    item.style.borderColor = getColorForEmployee(leave.employeeName);
+                    item.innerHTML = `
+                        <div class="leave-list-item-info">
+                            <strong>${leave.employeeName}</strong>
+                            <p>من: ${formatDate(leave.startDate)} - إلى: ${formatDate(leave.endDate)}</p>
+                        </div>`;
+                    elements.leavesListContainer.appendChild(item);
+                });
+            }
+
+            // --- الربط الرئيسي والتفاعلات (تم تعديله ليكون async) ---
+            async function main() {
+                elements.loginForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    if (document.getElementById('username').value === 'admin' && document.getElementById('password').value === 'admin') {
+                        elements.loginOverlay.classList.add('hidden');
+                        elements.appContainer.classList.remove('hidden');
+                        
+                        // جلب البيانات لأول مرة بعد تسجيل الدخول
+                        leaves = await fetchLeaves();
+                        loadCalendar();
+                    } else {
+                        document.getElementById('login-error').textContent = 'اسم المستخدم أو كلمة المرور غير صحيحة.';
+                    }
+                });
+
+                elements.nextMonthBtn.addEventListener('click', () => { nav++; loadCalendar(); });
+                elements.prevMonthBtn.addEventListener('click', () => { nav--; loadCalendar(); });
+                
+                elements.addLeaveBtn.addEventListener('click', () => openModal(elements.addLeaveModal));
+                elements.manageLeavesBtn.addEventListener('click', () => { populateLeavesList(); openModal(elements.manageLeavesModal); });
+                document.querySelectorAll('.btn-cancel').forEach(btn => btn.addEventListener('click', closeAllModals));
+                
+                elements.calendarGrid.addEventListener('click', (e) => {
+                    if (e.target.matches('.leave-bar')) { openViewModal(parseInt(e.target.dataset.leaveId)); }
+                });
+                elements.leavesListContainer.addEventListener('click', (e) => {
+                    const listItem = e.target.closest('.leave-list-item');
+                    if (listItem) { openViewModal(parseInt(listItem.dataset.leaveId)); }
+                });
+
+                elements.addLeaveForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const newLeave = {
+                        id: Date.now(),
+                        employeeName: document.getElementById('add-employee-name').value.trim(),
+                        startDate: document.getElementById('add-start-date').value,
+                        endDate: document.getElementById('add-end-date').value,
+                    };
+                    
+                    const updatedLeaves = [...leaves, newLeave];
+                    await saveLeaves(updatedLeaves); // حفظ في قاعدة البيانات
+                    leaves = updatedLeaves; // تحديث الحالة المحلية
+                    
+                    elements.addLeaveForm.reset();
+                    closeAllModals();
+                    loadCalendar();
+                });
+
+                elements.deleteLeaveBtn.addEventListener('click', async () => {
+                    if (!confirm('هل أنت متأكد من حذف هذه الإجازة؟')) return;
+                    
+                    const updatedLeaves = leaves.filter(l => l.id !== currentlySelectedLeaveId);
+                    await saveLeaves(updatedLeaves); // حفظ في قاعدة البيانات
+                    leaves = updatedLeaves; // تحديث الحالة المحلية
+
+                    closeAllModals();
+                    loadCalendar();
+                });
+            }
+            
+            main(); // بدء تشغيل التطبيق
+        });
+    </script>
+</body>
+</html>
