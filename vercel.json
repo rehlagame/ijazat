@@ -1,7 +1,8 @@
 {
-  "functions": {
-    "api/leaves.js": {
-      "runtime": "edge"
+  "builds": [
+    {
+      "src": "api/leaves.js",
+      "use": "@vercel/edge"
     }
-  }
+  ]
 }
