@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>نظام إدارة الإجازات - متصل بـ Vercel KV</title>
     <style>
-        /* CSS code remains exactly the same, no changes needed here */
+        /* --- GLOBAL STYLES & VARIABLES --- */
         @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
         :root {
             --primary-color: #3498db; --secondary-color: #2c3e50; --background-color: #f4f6f9;
@@ -13,29 +13,32 @@
             --success-color: #2ecc71; --error-color: #e74c3c; --warning-color: #f39c12;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        /* --- MOBILE FIRST BODY & LAYOUT --- */
         body {
             font-family: 'Cairo', sans-serif;
             background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
             background-size: 400% 400%; animation: gradientBG 15s ease infinite;
-            color: var(--text-color); display: flex; justify-content: center; align-items: center;
-            min-height: 100vh; overflow: hidden;
+            color: var(--text-color);
+            min-height: 100vh;
+            /* Remove centering to allow scrolling from the top */
+            padding-top: 20px;
+            padding-bottom: 20px;
         }
         @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
         .hidden { display: none !important; }
 
         .loading-indicator {
-            text-align: center;
-            padding: 50px;
-            font-size: 20px;
-            color: var(--secondary-color);
+            text-align: center; padding: 50px; font-size: 18px; color: var(--secondary-color);
         }
 
+        /* --- LOGIN (NO MAJOR CHANGES) --- */
         #login-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6);
             backdrop-filter: blur(8px); display: flex; justify-content: center; align-items: center; z-index: 1000;
         }
         #login-box {
-            background: var(--surface-color); padding: 40px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            background: var(--surface-color); padding: 30px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
             text-align: center; width: 90%; max-width: 400px; animation: popIn 0.3s ease-out forwards;
         }
         @keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
@@ -45,54 +48,166 @@
         .input-group input { width: 100%; padding: 12px; border: 1px solid var(--light-gray); border-radius: 8px; font-family: 'Cairo', sans-serif; font-size: 16px; transition: border-color 0.3s, box-shadow 0.3s; }
         .input-group input:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2); }
         #login-button { width: 100%; padding: 15px; border: none; border-radius: 8px; background-color: var(--primary-color); color: white; font-size: 18px; font-weight: 700; cursor: pointer; transition: background-color 0.3s, transform 0.2s; }
-        #login-button:hover { background-color: #2980b9; transform: translateY(-2px); }
+        #login-button:hover { background-color: #2980b9; }
         #login-error { color: var(--error-color); margin-top: 15px; height: 20px; }
 
-        #app-container { width: 95%; max-width: 1200px; height: 90vh; background: var(--surface-color); border-radius: 20px; box-shadow: 0 15px 40px rgba(0, 0, 0, 0.25); display: flex; flex-direction: column; overflow: hidden; }
-        header { display: flex; justify-content: space-between; align-items: center; padding: 20px 30px; background-color: var(--secondary-color); color: white; border-bottom: 4px solid var(--primary-color); }
-        header h1 { font-size: 24px; }
-        .header-buttons { display: flex; gap: 10px; }
-        .header-buttons button { padding: 10px 20px; border: none; border-radius: 8px; color: white; font-size: 16px; font-family: 'Cairo', sans-serif; cursor: pointer; transition: all 0.3s; display: flex; align-items: center; gap: 8px; }
-        #add-leave-btn { background-color: var(--primary-color); } #add-leave-btn:hover { background-color: #2980b9; transform: translateY(-2px); }
-        #manage-leaves-btn { background-color: var(--warning-color); } #manage-leaves-btn:hover { background-color: #d35400; transform: translateY(-2px); }
+        /* --- RESPONSIVE APP CONTAINER --- */
+        #app-container {
+            width: 95%; max-width: 1200px;
+            /* CRITICAL CHANGE: Remove fixed height, allow content to grow */
+            min-height: 80vh;
+            background: var(--surface-color); border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            display: flex; flex-direction: column;
+            /* CRITICAL CHANGE: Remove overflow hidden to allow internal scrolling */
+        }
 
-        #calendar-wrapper { padding: 20px; flex-grow: 1; display: flex; flex-direction: column; background-color: var(--background-color); }
-        #calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        #month-display { font-size: 28px; font-weight: 700; color: var(--secondary-color); }
-        .nav-btn { border: none; background-color: var(--surface-color); border-radius: 50%; cursor: pointer; font-size: 20px; width: 45px; height: 45px; display: flex; justify-content: center; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); transition: background-color 0.3s, transform 0.2s; }
+        /* --- RESPONSIVE HEADER --- */
+        header {
+            display: flex;
+            /* CRITICAL CHANGE: Stack items on mobile */
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            padding: 20px 15px;
+            background-color: var(--secondary-color); color: white; border-bottom: 4px solid var(--primary-color);
+        }
+        header h1 {
+            font-size: 22px;
+            text-align: center;
+        }
+        .header-buttons {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+        }
+        .header-buttons button {
+            /* CRITICAL CHANGE: Make buttons take equal space */
+            flex-grow: 1;
+            padding: 12px 10px; border: none; border-radius: 8px; color: white;
+            font-size: 14px; font-family: 'Cairo', sans-serif; cursor: pointer; transition: all 0.3s;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        #add-leave-btn { background-color: var(--primary-color); } #add-leave-btn:hover { background-color: #2980b9; }
+        #manage-leaves-btn { background-color: var(--warning-color); } #manage-leaves-btn:hover { background-color: #d35400; }
+
+        /* --- RESPONSIVE CALENDAR --- */
+        #calendar-wrapper {
+            padding: 15px; flex-grow: 1; display: flex; flex-direction: column; background-color: var(--background-color);
+            /* CRITICAL CHANGE: Allow this section to scroll if calendar is too big */
+            overflow-y: auto;
+        }
+        #calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        #month-display { font-size: 22px; font-weight: 700; color: var(--secondary-color); }
+        .nav-btn {
+            border: none; background-color: var(--surface-color); border-radius: 50%; cursor: pointer;
+            font-size: 18px; width: 40px; height: 40px; display: flex; justify-content: center;
+            align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); transition: all 0.3s;
+        }
         .nav-btn:hover { background-color: #e0e0e0; transform: scale(1.1); }
-        #weekdays { display: grid; grid-template-columns: repeat(7, 1fr); margin-bottom: 10px; }
-        #weekdays div { text-align: center; font-weight: 600; color: var(--primary-color); padding: 10px; }
+
+        #weekdays { display: grid; grid-template-columns: repeat(7, 1fr); margin-bottom: 5px; }
+        #weekdays div {
+            text-align: center; font-weight: 600; color: var(--primary-color); padding: 8px 0;
+            font-size: 13px; /* Smaller font for weekdays on mobile */
+        }
         #calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; flex-grow: 1; }
-        .day { background-color: var(--surface-color); border-radius: 8px; padding: 8px; display: flex; flex-direction: column; min-height: 100px; }
+        .day {
+            background-color: var(--surface-color); border-radius: 8px; padding: 5px;
+            display: flex; flex-direction: column;
+            /* CRITICAL CHANGE: Shorter day height for mobile */
+            min-height: 85px;
+        }
         .day.padding { background-color: transparent; }
-        .day-number { font-weight: 600; margin-bottom: 5px; }
-        .day.today .day-number { background-color: var(--primary-color); color: white; border-radius: 50%; width: 28px; height: 28px; display: flex; justify-content: center; align-items: center; }
-        .leaves-container { display: flex; flex-direction: column; gap: 3px; overflow-y: auto; max-height: 70px; }
-        .leave-bar { padding: 3px 6px; border-radius: 4px; font-size: 12px; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; transition: filter 0.2s; }
+        .day-number { font-weight: 600; margin-bottom: 4px; font-size: 14px; }
+        .day.today .day-number {
+            background-color: var(--primary-color); color: white; border-radius: 50%;
+            width: 26px; height: 26px; display: flex; justify-content: center;
+            align-items: center; margin: 0 auto 4px auto;
+        }
+        .leaves-container { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
+        .leave-bar {
+            padding: 2px 4px; border-radius: 4px; font-size: 10px; color: white;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer;
+        }
         .leave-bar:hover { filter: brightness(1.15); }
 
-        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); backdrop-filter: blur(5px); display: flex; justify-content: center; align-items: center; z-index: 100; }
-        .modal-content { background-color: var(--surface-color); padding: 30px; border-radius: 15px; width: 90%; max-width: 600px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); animation: popIn 0.3s ease-out forwards; max-height: 80vh; display: flex; flex-direction: column; }
-        .modal-content h2 { margin-bottom: 20px; color: var(--secondary-color); }
+        /* --- RESPONSIVE MODALS --- */
+        .modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.6); backdrop-filter: blur(5px);
+            display: flex; justify-content: center; align-items: center; z-index: 100;
+        }
+        .modal-content {
+            background-color: var(--surface-color); padding: 25px; border-radius: 15px;
+            width: 90%; max-width: 500px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            animation: popIn 0.3s ease-out forwards; max-height: 90vh; /* Changed to 90vh */
+            display: flex; flex-direction: column; overflow-y: auto; /* Allow modal to scroll */
+        }
+        .modal-content h2 { margin-bottom: 20px; color: var(--secondary-color); font-size: 20px; }
         .modal-form { display: flex; flex-direction: column; gap: 15px; }
         .modal-form label { font-weight: 600; }
         .modal-form input { width: 100%; padding: 12px; border: 1px solid var(--light-gray); border-radius: 8px; font-family: 'Cairo', sans-serif; font-size: 16px; }
-        .modal-buttons { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 25px; }
-        .modal-buttons button, .btn { padding: 10px 20px; border-radius: 8px; border: none; font-family: 'Cairo', sans-serif; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s; }
+        .modal-buttons { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; margin-top: 25px; }
+        .modal-buttons button, .btn {
+            padding: 10px 15px; border-radius: 8px; border: none; font-family: 'Cairo', sans-serif;
+            font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s;
+            flex-grow: 1; /* Allow buttons to grow */
+        }
         .btn-save { background-color: var(--success-color); color: white; } .btn-save:hover { background-color: #27ae60; }
         .btn-cancel { background-color: var(--light-gray); color: var(--secondary-color); } .btn-cancel:hover { background-color: #95a5a6; }
         .btn-delete { background-color: var(--error-color); color: white; } .btn-delete:hover { background-color: #c0392b; }
 
-        #leaves-list-container { flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 10px; margin-top: 10px; }
-        .leave-list-item { display: flex; align-items: center; padding: 15px; background-color: var(--background-color); border-radius: 8px; cursor: pointer; transition: background-color 0.3s, box-shadow 0.3s; border-right: 5px solid; }
+        /* --- RESPONSIVE LEAVES LIST --- */
+        #leaves-list-container { flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 5px; margin-top: 10px; }
+        .leave-list-item { display: flex; align-items: center; padding: 10px; background-color: var(--background-color); border-radius: 8px; cursor: pointer; transition: all 0.3s; border-right: 5px solid; }
         .leave-list-item:hover { background-color: #dfe6e9; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        .leave-list-item-info strong { font-size: 18px; color: var(--secondary-color); }
-        .leave-list-item-info p { font-size: 14px; color: #636e72; }
-        .no-leaves-message { text-align: center; padding: 40px; color: var(--light-gray); font-size: 18px; }
-        
-        #view-leave-details p { font-size: 18px; line-height: 1.8; color: var(--text-color); }
+        .leave-list-item-info strong { font-size: 16px; color: var(--secondary-color); }
+        .leave-list-item-info p { font-size: 13px; color: #636e72; }
+        .no-leaves-message { text-align: center; padding: 40px; color: var(--light-gray); font-size: 16px; }
+
+        #view-leave-details p { font-size: 16px; line-height: 1.8; color: var(--text-color); }
         #view-leave-details p strong { color: var(--secondary-color); margin-left: 8px; }
+
+        /* --- MEDIA QUERY FOR LARGER SCREENS (TABLETS & DESKTOPS) --- */
+        @media (min-width: 768px) {
+            body {
+                /* Re-center the container on large screens */
+                display: flex; justify-content: center; align-items: center;
+                padding: 0;
+            }
+            #app-container {
+                /* Restore original desktop height */
+                height: 90vh;
+                border-radius: 20px;
+            }
+            header {
+                /* Restore original header layout */
+                flex-direction: row;
+                justify-content: space-between;
+                padding: 20px 30px;
+            }
+            header h1 { font-size: 24px; text-align: right; }
+            .header-buttons { width: auto; /* Buttons no longer need to be full width */ }
+            .header-buttons button { font-size: 16px; padding: 10px 20px; flex-grow: 0; }
+
+            #calendar-wrapper { padding: 20px; }
+            #calendar-header { margin-bottom: 20px; }
+            #month-display { font-size: 28px; }
+            .nav-btn { width: 45px; height: 45px; font-size: 20px; }
+            #weekdays div { font-size: initial; padding: 10px; }
+            .day { min-height: 100px; padding: 8px; }
+            .day-number { font-size: initial; }
+            .day.today .day-number { width: 28px; height: 28px; }
+            .leave-bar { font-size: 12px; padding: 3px 6px; }
+
+            .modal-content { max-width: 600px; padding: 30px; }
+            .modal-content h2 { font-size: initial; }
+            #view-leave-details p { font-size: 18px; }
+            .leave-list-item-info strong { font-size: 18px; }
+            .leave-list-item-info p { font-size: 14px; }
+            .no-leaves-message { font-size: 18px; }
+        }
     </style>
 </head>
 <body>
@@ -108,7 +223,7 @@
             </form>
         </div>
     </div>
-    
+
     <div id="app-container" class="hidden">
         <header>
             <h1>تقويم الإجازات</h1>
@@ -151,7 +266,7 @@
             </form>
         </div>
     </div>
-    
+
     <div id="view-leave-modal" class="modal hidden">
         <div class="modal-content">
             <h2>تفاصيل الإجازة</h2>
@@ -178,9 +293,9 @@
     </div>
 
     <script>
+        // --- JAVASCRIPT REMAINS EXACTLY THE SAME ---
         document.addEventListener('DOMContentLoaded', () => {
             const elements = {
-                // ... same elements as before
                 loginOverlay: document.getElementById('login-overlay'),
                 appContainer: document.getElementById('app-container'),
                 calendarGrid: document.getElementById('calendar-grid'),
@@ -203,12 +318,11 @@
             };
 
             let nav = 0;
-            let leaves = []; // ستبدأ فارغة ويتم جلبها من الـ API
+            let leaves = [];
             let currentlySelectedLeaveId = null;
             const weekdays = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
             const employeeColors = {};
 
-            // --- دوال الاتصال بقاعدة البيانات (API) ---
             async function fetchLeaves() {
                 try {
                     const response = await fetch('/api/leaves');
@@ -217,10 +331,10 @@
                 } catch (error) {
                     console.error('Failed to fetch leaves:', error);
                     alert('خطأ في جلب البيانات من قاعدة البيانات.');
-                    return []; // ارجع مصفوفة فارغة في حالة الفشل
+                    return [];
                 }
             }
-            
+
             async function saveLeaves(updatedLeaves) {
                 try {
                     await fetch('/api/leaves', {
@@ -233,8 +347,7 @@
                     alert('خطأ في حفظ البيانات في قاعدة البيانات.');
                 }
             }
-            
-            // --- دوال الأدوات ---
+
             const getColorForEmployee = (employeeName) => {
                 if (!employeeColors[employeeName]) {
                     let hash = 0;
@@ -244,8 +357,7 @@
                 return employeeColors[employeeName];
             };
             const formatDate = (dateString) => new Date(dateString).toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' });
-            
-            // --- منطق التقويم (لا تغييرات هنا) ---
+
             function loadCalendar() {
                 const dt = new Date();
                 if (nav !== 0) dt.setMonth(new Date().getMonth() + nav);
@@ -295,7 +407,6 @@
                 }
             }
 
-            // --- منطق النوافذ (لا تغييرات هنا) ---
             const openModal = (modal) => modal.classList.remove('hidden');
             const closeAllModals = () => [elements.addLeaveModal, elements.viewLeaveModal, elements.manageLeavesModal].forEach(modal => modal.classList.add('hidden'));
 
@@ -331,15 +442,13 @@
                 });
             }
 
-            // --- الربط الرئيسي والتفاعلات (تم تعديله ليكون async) ---
             async function main() {
                 elements.loginForm.addEventListener('submit', async (e) => {
                     e.preventDefault();
                     if (document.getElementById('username').value === 'admin' && document.getElementById('password').value === 'admin') {
                         elements.loginOverlay.classList.add('hidden');
                         elements.appContainer.classList.remove('hidden');
-                        
-                        // جلب البيانات لأول مرة بعد تسجيل الدخول
+
                         leaves = await fetchLeaves();
                         loadCalendar();
                     } else {
@@ -349,11 +458,11 @@
 
                 elements.nextMonthBtn.addEventListener('click', () => { nav++; loadCalendar(); });
                 elements.prevMonthBtn.addEventListener('click', () => { nav--; loadCalendar(); });
-                
+
                 elements.addLeaveBtn.addEventListener('click', () => openModal(elements.addLeaveModal));
                 elements.manageLeavesBtn.addEventListener('click', () => { populateLeavesList(); openModal(elements.manageLeavesModal); });
                 document.querySelectorAll('.btn-cancel').forEach(btn => btn.addEventListener('click', closeAllModals));
-                
+
                 elements.calendarGrid.addEventListener('click', (e) => {
                     if (e.target.matches('.leave-bar')) { openViewModal(parseInt(e.target.dataset.leaveId)); }
                 });
@@ -370,11 +479,11 @@
                         startDate: document.getElementById('add-start-date').value,
                         endDate: document.getElementById('add-end-date').value,
                     };
-                    
+
                     const updatedLeaves = [...leaves, newLeave];
-                    await saveLeaves(updatedLeaves); // حفظ في قاعدة البيانات
-                    leaves = updatedLeaves; // تحديث الحالة المحلية
-                    
+                    await saveLeaves(updatedLeaves);
+                    leaves = updatedLeaves;
+
                     elements.addLeaveForm.reset();
                     closeAllModals();
                     loadCalendar();
@@ -382,17 +491,17 @@
 
                 elements.deleteLeaveBtn.addEventListener('click', async () => {
                     if (!confirm('هل أنت متأكد من حذف هذه الإجازة؟')) return;
-                    
+
                     const updatedLeaves = leaves.filter(l => l.id !== currentlySelectedLeaveId);
-                    await saveLeaves(updatedLeaves); // حفظ في قاعدة البيانات
-                    leaves = updatedLeaves; // تحديث الحالة المحلية
+                    await saveLeaves(updatedLeaves);
+                    leaves = updatedLeaves;
 
                     closeAllModals();
                     loadCalendar();
                 });
             }
-            
-            main(); // بدء تشغيل التطبيق
+
+            main();
         });
     </script>
 </body>
